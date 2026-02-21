@@ -12,6 +12,7 @@ import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler
 import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import org.json.JSONException
+import java.util.Properties
 
 fun createJson() = Json {
     isLenient = true
@@ -20,7 +21,7 @@ fun createJson() = Json {
 }
 
 private const val TAG = "CampgroundsMain/"
-private val PARKS_API_KEY = BuildConfig.API_KEY
+private const val PARKS_API_KEY = BuildConfig.API_KEY
 private val CAMPGROUNDS_URL =
     "https://developer.nps.gov/api/v1/campgrounds?api_key=${PARKS_API_KEY}"
 
@@ -28,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var campgroundsRecyclerView: RecyclerView
     private lateinit var binding: ActivityMainBinding
 
-    // TODO: Create campgrounds list
+    private val campgrounds = mutableListOf<Campground>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,8 +40,8 @@ class MainActivity : AppCompatActivity() {
 
         campgroundsRecyclerView = findViewById(R.id.campgrounds)
 
-        // TODO: Set up CampgroundAdapter with campgrounds
-
+        val campgroundAdapter = CampgroundAdapter(this, campgrounds)
+        campgroundsRecyclerView.adapter = campgroundAdapter
 
         campgroundsRecyclerView.layoutManager = LinearLayoutManager(this).also {
             val dividerItemDecoration = DividerItemDecoration(this, it.orientation)
@@ -61,11 +62,17 @@ class MainActivity : AppCompatActivity() {
             override fun onSuccess(statusCode: Int, headers: Headers, json: JSON) {
                 Log.i(TAG, "Successfully fetched campgrounds: $json")
                 try {
-                    // TODO: Create the parsedJSON
+                    // Convert JSON to String
+                    val jsonString = json.jsonObject.toString()
 
-                    // TODO: Do something with the returned json (contains campground information)
+                    // Parse JSON using Kotlin Serialization
+                    val parsedJson = createJson().decodeFromString<CampgroundResponse>(jsonString)
 
-                    // TODO: Save the campgrounds and reload the screen
+                    parsedJson.data?.let { list ->
+                        campgrounds.addAll(list)
+                    }
+
+                    campgroundAdapter.notifyDataSetChanged()
 
                 } catch (e: JSONException) {
                     Log.e(TAG, "Exception: $e")
