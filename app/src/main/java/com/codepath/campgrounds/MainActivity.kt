@@ -12,7 +12,9 @@ import com.codepath.asynchttpclient.callback.JsonHttpResponseHandler
 import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import org.json.JSONException
-import java.util.Properties
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers.IO
 
 fun createJson() = Json {
     isLenient = true
@@ -48,6 +50,23 @@ class MainActivity : AppCompatActivity() {
             campgroundsRecyclerView.addItemDecoration(dividerItemDecoration)
         }
 
+        lifecycleScope.launch {
+            (application as CampgroundApplication).db.campgroundDao().getAll().collect { databaseList ->
+                databaseList.map { entity ->
+                    Campground(
+                        entity.name,
+                        entity.description,
+                        entity.latLong,
+                        listOf(CampgroundImage(entity.imageUrl, null))
+                    )
+                }.also { mappedList ->
+                    campgrounds.clear()
+                    campgrounds.addAll(mappedList)
+                    campgroundAdapter.notifyDataSetChanged()
+                }
+            }
+        }
+
         val client = AsyncHttpClient()
         client.get(CAMPGROUNDS_URL, object : JsonHttpResponseHandler() {
             override fun onFailure(
@@ -69,7 +88,19 @@ class MainActivity : AppCompatActivity() {
                     val parsedJson = createJson().decodeFromString<CampgroundResponse>(jsonString)
 
                     parsedJson.data?.let { list ->
-                        campgrounds.addAll(list)
+                        lifecycleScope.launch(IO) {
+
+                            (application as CampgroundApplication).db.campgroundDao().deleteAll()
+                            (application as CampgroundApplication).db.campgroundDao()
+                                .insertAll(list.map {
+                                    CampgroundEntity(
+                                        name = it.name,
+                                        description = it.description,
+                                        latLong = it.latLong,
+                                        imageUrl = it.imageUrl
+                                    )
+                                })
+                        }
                     }
 
                     campgroundAdapter.notifyDataSetChanged()
